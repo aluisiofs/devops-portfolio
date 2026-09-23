@@ -38,7 +38,7 @@ jobs:
         run: |
           echo "Aguardando resposta da aplicação em http://localhost:3000..."
           for i in {1..20}; do
-            if curl -s http://localhost:3000 &gt; /dev/null; then
+            if curl -s http://localhost:3000 > /dev/null 2>&1; then
               echo "✅ Aplicação iniciada com sucesso!"
               exit 0
             fi
@@ -61,4 +61,3 @@ jobs:
       - name: Finalizar e limpar ambiente
         if: always()
         run: docker compose down
-        
