@@ -1,0 +1,44 @@
+name: CI - DevOps Portfolio
+
+on:
+  push:
+    branches:
+      - "develop"
+      - "main"
+  pull_request:
+    branches:
+      - "develop"
+      - "main"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Validar Docker Compose
+        run: |
+          docker compose config
+
+      - name: Build da aplicação
+        run: |
+          docker compose build
+
+      - name: Subir containers
+        run: |
+          docker compose up -d
+
+      - name: Verificar containers
+        run: |
+          docker compose ps
+
+      - name: Testar aplicação
+        run: |
+          curl --fail http://localhost:3000
+
+      - name: Finalizar ambiente
+        if: always()
+        run: |
+          docker compose down
