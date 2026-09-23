@@ -2,52 +2,63 @@ name: CI - DevOps Portfolio
 
 on:
   push:
-    branches:
-      - "develop"
-      - "main"
+    branches: [ "develop", "main" ]
   pull_request:
-    branches:
-      - "develop"
-      - "main"
+    branches: [ "develop", "main" ]
+
+# 1. Evita builds duplicados na mesma branch cancelando execuções antigas
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 2. Princípio do Menor Privilégio de Segurança
+permissions:
+  contents: read
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # 3. Cancela o job se ultrapassar 10 minutos de execução
 
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      - name: Validar Docker Compose
-        run: |
-          docker compose config
+      - name: Validar sintaxe do Docker Compose
+        run: docker compose config
 
-      - name: Build da aplicação
-        run: |
-          docker compose build
+      - name: Build das imagens Docker
+        run: docker compose build
 
-      - name: Subir containers
-        run: |
-          docker compose up -d
+      - name: Subir containers em segundo plano
+        run: docker compose up -d
 
-      - name: Aguardar inicialização dos serviços (App + DB)
+      # 4. Loop inteligente: aguarda a API responder sem atrasar a pipeline
+      - name: Aguardar inicialização ativa da aplicação (Healthcheck)
         run: |
-          sleep 10
+          echo "Aguardando resposta da aplicação em http://localhost:3000..."
+          for i in {1..20}; do
+            if curl -s http://localhost:3000 &gt; /dev/null; then
+              echo "✅ Aplicação iniciada com sucesso!"
+              exit 0
+            fi
+            echo "Aguardando serviços ficarem prontos... ($i/20)"
+            sleep 2
+          done
+          echo "❌ Tempo limite atingido aguardando a aplicação subir."
+          exit 1
 
       - name: Verificar status dos containers
-        run: |
-          docker compose ps
+        run: docker compose ps
 
-      - name: Testar aplicação com retentativas
-        run: |
-          curl --fail --retry 5 --retry-delay 3 http://localhost:3000
+      - name: Testar resposta da API
+        run: curl --fail http://localhost:3000
 
-      - name: Exibir logs em caso de falha
+      - name: Exibir logs do ambiente em caso de falha
         if: failure()
-        run: |
-          docker compose logs
+        run: docker compose logs
 
-      - name: Finalizar ambiente
+      - name: Finalizar e limpar ambiente
         if: always()
-        run: |
-          docker compose down
+        run: docker compose down
+        
