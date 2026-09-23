@@ -30,13 +30,22 @@ jobs:
         run: |
           docker compose up -d
 
-      - name: Verificar containers
+      - name: Aguardar inicialização dos serviços (App + DB)
+        run: |
+          sleep 10
+
+      - name: Verificar status dos containers
         run: |
           docker compose ps
 
-      - name: Testar aplicação
+      - name: Testar aplicação com retentativas
         run: |
-          curl --fail http://localhost:3000
+          curl --fail --retry 5 --retry-delay 3 http://localhost:3000
+
+      - name: Exibir logs em caso de falha
+        if: failure()
+        run: |
+          docker compose logs
 
       - name: Finalizar ambiente
         if: always()
